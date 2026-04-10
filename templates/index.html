@@ -197,6 +197,62 @@
     }
     .style-card.selected .style-name { color: #fff; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* File list */
+    .file-list {
+      margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .file-tag {
+      padding: 4px 10px; background: #252525; border: 1px solid #333; border-radius: 8px;
+      font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 6px;
+    }
+    .file-tag .remove-file {
+      cursor: pointer; color: #888; font-size: 0.9rem; line-height: 1;
+    }
+    .file-tag .remove-file:hover { color: #ff6b6b; }
+
+    /* Batch results */
+    .batch-results {
+      margin-top: 24px; display: none;
+    }
+    .batch-results.active { display: block; }
+    .batch-results-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .batch-results-header h3 { font-size: 0.95rem; color: #fff; }
+    .batch-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    }
+    .batch-item {
+      background: #1a1a1a; border-radius: 12px; overflow: hidden; border: 1px solid #333;
+    }
+    .batch-item img {
+      width: 100%; height: 160px; object-fit: contain; display: block;
+      background: repeating-conic-gradient(#222 0% 25%, #2a2a2a 0% 50%) 50% / 16px 16px;
+    }
+    .batch-item-info {
+      padding: 10px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .batch-item-name {
+      font-size: 0.75rem; color: #aaa; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; flex: 1; margin-right: 8px;
+    }
+    .batch-item-dl {
+      padding: 4px 10px; background: #00b894; color: #fff; border: none; border-radius: 6px;
+      font-size: 0.7rem; font-weight: 600; cursor: pointer; text-decoration: none; flex-shrink: 0;
+    }
+    .batch-item.processing {
+      border-color: #6c5ce7;
+    }
+    .batch-item.error {
+      border-color: #5c2020;
+    }
+    .batch-item-status {
+      padding: 10px; text-align: center; font-size: 0.8rem; color: #888;
+    }
+    .batch-counter {
+      font-size: 0.85rem; color: #888;
+    }
   </style>
 </head>
 <body>
@@ -214,9 +270,10 @@
     <!-- ==================== TAB 1: CONVERTER ==================== -->
     <div class="tab-content active" id="tab-convert">
       <div class="drop-zone" id="dropZone">
-        <p id="dropText">Drop a video here or tap to select</p>
+        <p id="dropText">Drop videos here or tap to select</p>
       </div>
-      <input type="file" id="fileInput" accept="video/*" hidden>
+      <input type="file" id="fileInput" accept="video/*" hidden multiple>
+      <div class="file-list" id="videoFileList"></div>
 
       <div class="settings">
         <div class="settings-toggle" id="settingsToggle">
@@ -385,26 +442,28 @@
       <button class="btn" id="convertBtn" disabled>Convert</button>
 
       <div class="progress-section" id="progressSection">
+        <p class="batch-counter" id="batchCounter"></p>
         <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
         <p class="progress-text" id="progressText">Starting...</p>
         <div class="log" id="log"></div>
       </div>
       <div class="error-msg" id="errorMsg"></div>
-      <div class="result-section" id="resultSection">
-        <img id="resultImg" src="" alt="Result">
-        <div class="result-actions">
-          <a class="btn-download" id="downloadLink" href="#">Download</a>
-          <button class="btn-reset" id="resetBtn">New conversion</button>
+      <div class="batch-results" id="videoResults">
+        <div class="batch-results-header">
+          <h3>Results</h3>
+          <button class="btn-reset" id="resetBtn">Clear all</button>
         </div>
+        <div class="batch-grid" id="videoResultsGrid"></div>
       </div>
     </div>
 
     <!-- ==================== TAB 2: IMAGE ==================== -->
     <div class="tab-content" id="tab-image">
       <div class="drop-zone" id="imgDropZone">
-        <p id="imgDropText">Drop an image here or tap to select</p>
+        <p id="imgDropText">Drop images here or tap to select</p>
       </div>
-      <input type="file" id="imgFileInput" accept="image/*" hidden>
+      <input type="file" id="imgFileInput" accept="image/*" hidden multiple>
+      <div class="file-list" id="imgFileList"></div>
 
       <div class="settings">
         <div class="settings-toggle" id="imgSettingsToggle">
@@ -455,22 +514,22 @@
         </div>
       </div>
 
-      <button class="btn" id="imgProcessBtn" disabled>Process Image</button>
+      <button class="btn" id="imgProcessBtn" disabled>Process Images</button>
 
       <div class="progress-section" id="imgProgressSection">
+        <p class="batch-counter" id="imgBatchCounter"></p>
         <div style="text-align:center;padding:24px;">
           <div style="display:inline-block;width:40px;height:40px;border:3px solid #333;border-top-color:#6c5ce7;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-          <p style="margin-top:12px;font-size:0.85rem;color:#888;">Processing image...</p>
+          <p id="imgProgressText" style="margin-top:12px;font-size:0.85rem;color:#888;">Processing...</p>
         </div>
       </div>
       <div class="error-msg" id="imgErrorMsg"></div>
-      <div class="result-section" id="imgResultSection">
-        <img id="imgResultImg" src="" alt="Result">
-        <p id="imgResultInfo" style="font-size:0.8rem;color:#888;margin-top:8px;"></p>
-        <div class="result-actions">
-          <a class="btn-download" id="imgDownloadLink" href="#">Download</a>
-          <button class="btn-reset" id="imgResetBtn">New image</button>
+      <div class="batch-results" id="imgResults">
+        <div class="batch-results-header">
+          <h3>Results</h3>
+          <button class="btn-reset" id="imgResetBtn">Clear all</button>
         </div>
+        <div class="batch-grid" id="imgResultsGrid"></div>
       </div>
     </div>
 
@@ -790,25 +849,60 @@
     const convertBtn = $('convertBtn');
     const progressSection = $('progressSection'), progressBar = $('progressBar');
     const progressText = $('progressText'), logEl = $('log');
-    const resultSection = $('resultSection'), resultImg = $('resultImg');
-    const downloadLink = $('downloadLink'), resetBtn = $('resetBtn');
     const errorMsg = $('errorMsg');
-    let selectedFile = null;
+    let selectedFiles = [];
+
+    function renderFileList(files, listEl, removeCallback) {
+      listEl.innerHTML = '';
+      files.forEach((f, i) => {
+        const tag = document.createElement('div');
+        tag.className = 'file-tag';
+        tag.innerHTML = f.name + ' <span class="remove-file" data-idx="' + i + '">&times;</span>';
+        tag.querySelector('.remove-file').addEventListener('click', e => {
+          e.stopPropagation();
+          removeCallback(i);
+        });
+        listEl.appendChild(tag);
+      });
+    }
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop', e => {
       e.preventDefault(); dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length) addVideoFiles(e.dataTransfer.files);
     });
-    fileInput.addEventListener('change', () => { if (fileInput.files.length) selectFile(fileInput.files[0]); });
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) addVideoFiles(fileInput.files); });
 
+    function updateVideoFileList() {
+      renderFileList(selectedFiles, $('videoFileList'), i => {
+        selectedFiles.splice(i, 1);
+        if (selectedFiles.length === 0) {
+          dropText.textContent = 'Drop videos here or tap to select';
+          dropZone.classList.remove('has-file'); convertBtn.disabled = true;
+        } else {
+          dropText.innerHTML = '<span class="filename">' + selectedFiles.length + ' file(s) selected</span>';
+        }
+        updateVideoFileList();
+      });
+    }
+
+    function addVideoFiles(files) {
+      for (const f of files) selectedFiles.push(f);
+      dropText.innerHTML = '<span class="filename">' + selectedFiles.length + ' file(s) selected</span>';
+      dropZone.classList.add('has-file');
+      convertBtn.disabled = false;
+      updateVideoFileList();
+    }
+
+    // Keep selectFile for "Send to Converter" from prompt builder
     function selectFile(file) {
-      selectedFile = file;
+      selectedFiles = [file];
       dropText.innerHTML = '<span class="filename">' + file.name + '</span>';
       dropZone.classList.add('has-file');
       convertBtn.disabled = false;
+      renderFileList(selectedFiles, $('videoFileList'), () => {});
     }
 
     $('settingsToggle').addEventListener('click', () => {
@@ -851,73 +945,104 @@
       };
     }
 
+    function convertOneVideo(file, opts) {
+      return new Promise(async (resolve) => {
+        const form = new FormData();
+        form.append('video', file);
+        form.append('options', JSON.stringify(opts));
+        try {
+          const res = await fetch('/convert', { method: 'POST', body: form });
+          const data = await res.json();
+          if (data.error) { resolve({ error: data.error }); return; }
+
+          progressText.textContent = 'Processing...';
+          const evtSource = new EventSource('/progress/' + data.job_id);
+          evtSource.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.log) {
+              logEl.textContent += msg.log + '\n';
+              logEl.scrollTop = logEl.scrollHeight;
+              const m = msg.log.match(/(?:Processing|Blurring) frame (\d+)\/(\d+)/);
+              if (m) {
+                const pct = Math.round((parseInt(m[1]) / parseInt(m[2])) * 100);
+                progressBar.style.width = pct + '%';
+                progressText.textContent = msg.log;
+              } else if (msg.log.includes('Extracting')) {
+                progressText.textContent = 'Extracting frames...'; progressBar.style.width = '5%';
+              } else if (msg.log.includes('palette')) {
+                progressText.textContent = 'Generating palette...'; progressBar.style.width = '90%';
+              } else if (msg.log.includes('Assembling')) {
+                progressText.textContent = 'Assembling output...'; progressBar.style.width = '95%';
+              } else if (msg.log.includes('Created:')) {
+                progressBar.style.width = '100%'; progressText.textContent = msg.log;
+              }
+            }
+            if (msg.status === 'done') {
+              evtSource.close();
+              resolve({ job_id: data.job_id });
+            } else if (msg.status === 'error') {
+              evtSource.close();
+              resolve({ error: 'Conversion failed' });
+            }
+          };
+          evtSource.onerror = () => { evtSource.close(); resolve({ error: 'Connection lost' }); };
+        } catch (err) {
+          resolve({ error: err.message });
+        }
+      });
+    }
+
     convertBtn.addEventListener('click', async () => {
-      if (!selectedFile) return;
+      if (!selectedFiles.length) return;
       convertBtn.disabled = true;
       progressSection.classList.add('active');
-      resultSection.classList.remove('active');
+      $('videoResults').classList.add('active');
       errorMsg.classList.remove('active');
-      progressBar.style.width = '0%';
-      progressText.textContent = 'Uploading...';
-      logEl.textContent = '';
+      const opts = getOptions();
+      const total = selectedFiles.length;
 
-      const form = new FormData();
-      form.append('video', selectedFile);
-      form.append('options', JSON.stringify(getOptions()));
+      for (let i = 0; i < total; i++) {
+        const file = selectedFiles[i];
+        $('batchCounter').textContent = `Processing ${i + 1} of ${total}: ${file.name}`;
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Uploading...';
+        logEl.textContent = '';
 
-      try {
-        const res = await fetch('/convert', { method: 'POST', body: form });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        // Add placeholder item
+        const item = document.createElement('div');
+        item.className = 'batch-item processing';
+        item.innerHTML = '<div class="batch-item-status">Processing...</div>';
+        $('videoResultsGrid').appendChild(item);
 
-        progressText.textContent = 'Processing...';
-        const evtSource = new EventSource('/progress/' + data.job_id);
-        evtSource.onmessage = (e) => {
-          const msg = JSON.parse(e.data);
-          if (msg.log) {
-            logEl.textContent += msg.log + '\n';
-            logEl.scrollTop = logEl.scrollHeight;
-            const m = msg.log.match(/(?:Processing|Blurring) frame (\d+)\/(\d+)/);
-            if (m) {
-              const pct = Math.round((parseInt(m[1]) / parseInt(m[2])) * 100);
-              progressBar.style.width = pct + '%';
-              progressText.textContent = msg.log;
-            } else if (msg.log.includes('Extracting')) {
-              progressText.textContent = 'Extracting frames...'; progressBar.style.width = '5%';
-            } else if (msg.log.includes('palette')) {
-              progressText.textContent = 'Generating palette...'; progressBar.style.width = '90%';
-            } else if (msg.log.includes('Assembling')) {
-              progressText.textContent = 'Assembling output...'; progressBar.style.width = '95%';
-            } else if (msg.log.includes('Created:')) {
-              progressBar.style.width = '100%'; progressText.textContent = msg.log;
-            }
-          }
-          if (msg.status === 'done') {
-            evtSource.close(); progressBar.style.width = '100%'; progressText.textContent = 'Done!';
-            resultImg.src = '/result/' + data.job_id + '?t=' + Date.now();
-            downloadLink.href = '/download/' + data.job_id;
-            resultSection.classList.add('active'); convertBtn.disabled = false;
-          } else if (msg.status === 'error') {
-            evtSource.close();
-            errorMsg.textContent = 'Conversion failed. Check the log for details.';
-            errorMsg.classList.add('active'); convertBtn.disabled = false;
-          }
-        };
-        evtSource.onerror = () => {
-          evtSource.close(); errorMsg.textContent = 'Connection lost.';
-          errorMsg.classList.add('active'); convertBtn.disabled = false;
-        };
-      } catch (err) {
-        errorMsg.textContent = err.message;
-        errorMsg.classList.add('active'); convertBtn.disabled = false;
+        const result = await convertOneVideo(file, opts);
+        item.classList.remove('processing');
+
+        if (result.error) {
+          item.classList.add('error');
+          item.innerHTML = '<div class="batch-item-status" style="color:#ff6b6b;">' + file.name + '<br>' + result.error + '</div>';
+        } else {
+          const name = file.name.replace(/\.[^.]+$/, '');
+          item.innerHTML =
+            '<img src="/result/' + result.job_id + '?t=' + Date.now() + '" alt="' + name + '">' +
+            '<div class="batch-item-info">' +
+              '<span class="batch-item-name">' + name + '</span>' +
+              '<a class="batch-item-dl" href="/download/' + result.job_id + '" download>Download</a>' +
+            '</div>';
+        }
       }
+
+      progressSection.classList.remove('active');
+      convertBtn.disabled = false;
     });
 
-    resetBtn.addEventListener('click', () => {
-      selectedFile = null; fileInput.value = '';
-      dropText.textContent = 'Drop a video here or tap to select';
+    $('resetBtn').addEventListener('click', () => {
+      selectedFiles = []; fileInput.value = '';
+      dropText.textContent = 'Drop videos here or tap to select';
       dropZone.classList.remove('has-file'); convertBtn.disabled = true;
-      progressSection.classList.remove('active'); resultSection.classList.remove('active');
+      $('videoFileList').innerHTML = '';
+      progressSection.classList.remove('active');
+      $('videoResults').classList.remove('active');
+      $('videoResultsGrid').innerHTML = '';
       errorMsg.classList.remove('active'); progressBar.style.width = '0%'; logEl.textContent = '';
     });
 
@@ -1358,22 +1483,36 @@
     // ===== IMAGE TAB =====
     const imgDropZone = $('imgDropZone'), imgFileInput = $('imgFileInput'), imgDropText = $('imgDropText');
     const imgProcessBtn = $('imgProcessBtn');
-    let imgSelectedFile = null;
+    let imgSelectedFiles = [];
 
     imgDropZone.addEventListener('click', () => imgFileInput.click());
     imgDropZone.addEventListener('dragover', e => { e.preventDefault(); imgDropZone.classList.add('dragover'); });
     imgDropZone.addEventListener('dragleave', () => imgDropZone.classList.remove('dragover'));
     imgDropZone.addEventListener('drop', e => {
       e.preventDefault(); imgDropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) selectImageFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length) addImageFiles(e.dataTransfer.files);
     });
-    imgFileInput.addEventListener('change', () => { if (imgFileInput.files.length) selectImageFile(imgFileInput.files[0]); });
+    imgFileInput.addEventListener('change', () => { if (imgFileInput.files.length) addImageFiles(imgFileInput.files); });
 
-    function selectImageFile(file) {
-      imgSelectedFile = file;
-      imgDropText.innerHTML = '<span class="filename">' + file.name + '</span>';
+    function updateImgFileList() {
+      renderFileList(imgSelectedFiles, $('imgFileList'), i => {
+        imgSelectedFiles.splice(i, 1);
+        if (imgSelectedFiles.length === 0) {
+          imgDropText.textContent = 'Drop images here or tap to select';
+          imgDropZone.classList.remove('has-file'); imgProcessBtn.disabled = true;
+        } else {
+          imgDropText.innerHTML = '<span class="filename">' + imgSelectedFiles.length + ' file(s) selected</span>';
+        }
+        updateImgFileList();
+      });
+    }
+
+    function addImageFiles(files) {
+      for (const f of files) imgSelectedFiles.push(f);
+      imgDropText.innerHTML = '<span class="filename">' + imgSelectedFiles.length + ' file(s) selected</span>';
       imgDropZone.classList.add('has-file');
       imgProcessBtn.disabled = false;
+      updateImgFileList();
     }
 
     $('imgSettingsToggle').addEventListener('click', () => {
@@ -1383,10 +1522,10 @@
     $('imgPadding').addEventListener('input', e => $('imgPaddingVal').textContent = e.target.value);
 
     imgProcessBtn.addEventListener('click', async () => {
-      if (!imgSelectedFile) return;
+      if (!imgSelectedFiles.length) return;
       imgProcessBtn.disabled = true;
       $('imgProgressSection').classList.add('active');
-      $('imgResultSection').classList.remove('active');
+      $('imgResults').classList.add('active');
       $('imgErrorMsg').classList.remove('active');
 
       const opts = {
@@ -1397,35 +1536,53 @@
         format: document.querySelector('input[name="imgFormat"]:checked').value,
       };
 
-      const form = new FormData();
-      form.append('image', imgSelectedFile);
-      form.append('options', JSON.stringify(opts));
+      const total = imgSelectedFiles.length;
+      for (let i = 0; i < total; i++) {
+        const file = imgSelectedFiles[i];
+        $('imgBatchCounter').textContent = `Processing ${i + 1} of ${total}: ${file.name}`;
+        $('imgProgressText').textContent = 'Processing ' + file.name + '...';
 
-      try {
-        const res = await fetch('/process-image', { method: 'POST', body: form });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        const item = document.createElement('div');
+        item.className = 'batch-item processing';
+        item.innerHTML = '<div class="batch-item-status">Processing...</div>';
+        $('imgResultsGrid').appendChild(item);
 
-        $('imgProgressSection').classList.remove('active');
-        $('imgResultImg').src = '/image-result/' + data.job_id + '?t=' + Date.now();
-        $('imgDownloadLink').href = '/image-download/' + data.job_id;
-        $('imgResultInfo').textContent = `${data.width} × ${data.height} — ${data.size}`;
-        $('imgResultSection').classList.add('active');
-        imgProcessBtn.disabled = false;
-      } catch (err) {
-        $('imgProgressSection').classList.remove('active');
-        $('imgErrorMsg').textContent = err.message;
-        $('imgErrorMsg').classList.add('active');
-        imgProcessBtn.disabled = false;
+        const form = new FormData();
+        form.append('image', file);
+        form.append('options', JSON.stringify(opts));
+
+        try {
+          const res = await fetch('/process-image', { method: 'POST', body: form });
+          const data = await res.json();
+          item.classList.remove('processing');
+          if (data.error) throw new Error(data.error);
+
+          const name = file.name.replace(/\.[^.]+$/, '');
+          item.innerHTML =
+            '<img src="/image-result/' + data.job_id + '?t=' + Date.now() + '" alt="' + name + '">' +
+            '<div class="batch-item-info">' +
+              '<span class="batch-item-name">' + name + ' (' + data.width + '×' + data.height + ')</span>' +
+              '<a class="batch-item-dl" href="/image-download/' + data.job_id + '" download>Download</a>' +
+            '</div>';
+        } catch (err) {
+          item.classList.remove('processing');
+          item.classList.add('error');
+          item.innerHTML = '<div class="batch-item-status" style="color:#ff6b6b;">' + file.name + '<br>' + err.message + '</div>';
+        }
       }
+
+      $('imgProgressSection').classList.remove('active');
+      imgProcessBtn.disabled = false;
     });
 
     $('imgResetBtn').addEventListener('click', () => {
-      imgSelectedFile = null; imgFileInput.value = '';
-      imgDropText.textContent = 'Drop an image here or tap to select';
+      imgSelectedFiles = []; imgFileInput.value = '';
+      imgDropText.textContent = 'Drop images here or tap to select';
       imgDropZone.classList.remove('has-file'); imgProcessBtn.disabled = true;
+      $('imgFileList').innerHTML = '';
       $('imgProgressSection').classList.remove('active');
-      $('imgResultSection').classList.remove('active');
+      $('imgResults').classList.remove('active');
+      $('imgResultsGrid').innerHTML = '';
       $('imgErrorMsg').classList.remove('active');
     });
 

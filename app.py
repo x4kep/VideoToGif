@@ -8,6 +8,7 @@ import select
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from uuid import uuid4
 
 import requests as http_requests
@@ -466,6 +467,7 @@ def convert():
     else:
         os.close(slave_fd)
         # Find actual output (format might change extension)
+        orig_name = os.path.splitext(filename)[0]
         jobs[job_id] = {
             "pid": pid,
             "master_fd": master_fd,
@@ -473,6 +475,7 @@ def convert():
             "work_dir": work_dir,
             "status": "running",
             "format": out_format,
+            "download_name": orig_name + ext,
         }
         return jsonify({"job_id": job_id})
 
@@ -954,6 +957,33 @@ def image_download(job_id):
     if not job or not os.path.exists(job["output"]):
         return jsonify({"error": "Not found"}), 404
     return send_file(job["output"], mimetype=job["mime"], as_attachment=True, download_name=job["download_name"])
+
+
+@app.route("/download-all", methods=["POST"])
+def download_all():
+    """Download multiple job results as a ZIP file."""
+    data = request.get_json()
+    job_ids = data.get("job_ids", [])
+    job_type = data.get("type", "video")  # "video" or "image"
+    folder_name = data.get("folder_name", "results")
+
+    store = jobs if job_type == "video" else image_jobs
+    zip_dir = tempfile.mkdtemp(prefix="zip_")
+    zip_path = os.path.join(zip_dir, f"{folder_name}.zip")
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for jid in job_ids:
+            job = store.get(jid)
+            if not job or not os.path.exists(job["output"]):
+                continue
+            arcname = os.path.join(folder_name, job.get("download_name", os.path.basename(job["output"])))
+            zf.write(job["output"], arcname)
+
+    if not os.path.exists(zip_path):
+        return jsonify({"error": "No files to download"}), 400
+
+    return send_file(zip_path, mimetype="application/zip", as_attachment=True,
+                     download_name=f"{folder_name}.zip")
 
 
 if __name__ == "__main__":

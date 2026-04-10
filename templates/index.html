@@ -451,7 +451,10 @@
       <div class="batch-results" id="videoResults">
         <div class="batch-results-header">
           <h3>Results</h3>
-          <button class="btn-reset" id="resetBtn">Clear all</button>
+          <div style="display:flex;gap:8px;">
+            <button class="batch-item-dl" id="videoDownloadAll" style="display:none;padding:8px 16px;font-size:0.8rem;">Download All</button>
+            <button class="btn-reset" id="resetBtn">Clear all</button>
+          </div>
         </div>
         <div class="batch-grid" id="videoResultsGrid"></div>
       </div>
@@ -542,7 +545,10 @@
       <div class="batch-results" id="imgResults">
         <div class="batch-results-header">
           <h3>Results</h3>
-          <button class="btn-reset" id="imgResetBtn">Clear all</button>
+          <div style="display:flex;gap:8px;">
+            <button class="batch-item-dl" id="imgDownloadAll" style="display:none;padding:8px 16px;font-size:0.8rem;">Download All</button>
+            <button class="btn-reset" id="imgResetBtn">Clear all</button>
+          </div>
         </div>
         <div class="batch-grid" id="imgResultsGrid"></div>
       </div>
@@ -1007,11 +1013,14 @@
       });
     }
 
+    let videoJobIds = [];
+
     convertBtn.addEventListener('click', async () => {
       if (!selectedFiles.length) return;
       convertBtn.disabled = true;
       progressSection.classList.add('active');
       $('videoResults').classList.add('active');
+      $('videoDownloadAll').style.display = 'none';
       errorMsg.classList.remove('active');
       const opts = getOptions();
       const total = selectedFiles.length;
@@ -1023,7 +1032,6 @@
         progressText.textContent = 'Uploading...';
         logEl.textContent = '';
 
-        // Add placeholder item
         const item = document.createElement('div');
         item.className = 'batch-item processing';
         item.innerHTML = '<div class="batch-item-status">Processing...</div>';
@@ -1036,6 +1044,7 @@
           item.classList.add('error');
           item.innerHTML = '<div class="batch-item-status" style="color:#ff6b6b;">' + file.name + '<br>' + result.error + '</div>';
         } else {
+          videoJobIds.push(result.job_id);
           const name = file.name.replace(/\.[^.]+$/, '');
           item.innerHTML =
             '<img src="/result/' + result.job_id + '?t=' + Date.now() + '" alt="' + name + '">' +
@@ -1048,16 +1057,46 @@
 
       progressSection.classList.remove('active');
       convertBtn.disabled = false;
+      if (videoJobIds.length > 1) $('videoDownloadAll').style.display = 'inline-block';
+    });
+
+    async function downloadAllZip(jobIds, type, folderName) {
+      const btn = $(type === 'video' ? 'videoDownloadAll' : 'imgDownloadAll');
+      btn.textContent = 'Zipping...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/download-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_ids: jobIds, type, folder_name: folderName }),
+        });
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = folderName + '.zip';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('Download failed: ' + e.message);
+      }
+      btn.textContent = 'Download All';
+      btn.disabled = false;
+    }
+
+    $('videoDownloadAll').addEventListener('click', () => {
+      downloadAllZip(videoJobIds, 'video', 'converted-videos');
     });
 
     $('resetBtn').addEventListener('click', () => {
-      selectedFiles = []; fileInput.value = '';
+      selectedFiles = []; fileInput.value = ''; videoJobIds = [];
       dropText.textContent = 'Drop videos here or tap to select';
       dropZone.classList.remove('has-file'); convertBtn.disabled = true;
       $('videoFileList').innerHTML = '';
       progressSection.classList.remove('active');
       $('videoResults').classList.remove('active');
       $('videoResultsGrid').innerHTML = '';
+      $('videoDownloadAll').style.display = 'none';
       errorMsg.classList.remove('active'); progressBar.style.width = '0%'; logEl.textContent = '';
     });
 
@@ -1547,11 +1586,14 @@
       });
     });
 
+    let imgJobIds = [];
+
     imgProcessBtn.addEventListener('click', async () => {
       if (!imgSelectedFiles.length) return;
       imgProcessBtn.disabled = true;
       $('imgProgressSection').classList.add('active');
       $('imgResults').classList.add('active');
+      $('imgDownloadAll').style.display = 'none';
       $('imgErrorMsg').classList.remove('active');
 
       const bgType = $('imgRemoveBg').checked ? document.querySelector('input[name="imgBgType"]:checked').value : 'transparent';
@@ -1586,6 +1628,7 @@
           item.classList.remove('processing');
           if (data.error) throw new Error(data.error);
 
+          imgJobIds.push(data.job_id);
           const name = file.name.replace(/\.[^.]+$/, '');
           item.innerHTML =
             '<img src="/image-result/' + data.job_id + '?t=' + Date.now() + '" alt="' + name + '">' +
@@ -1602,16 +1645,22 @@
 
       $('imgProgressSection').classList.remove('active');
       imgProcessBtn.disabled = false;
+      if (imgJobIds.length > 1) $('imgDownloadAll').style.display = 'inline-block';
+    });
+
+    $('imgDownloadAll').addEventListener('click', () => {
+      downloadAllZip(imgJobIds, 'image', 'processed-images');
     });
 
     $('imgResetBtn').addEventListener('click', () => {
-      imgSelectedFiles = []; imgFileInput.value = '';
+      imgSelectedFiles = []; imgFileInput.value = ''; imgJobIds = [];
       imgDropText.textContent = 'Drop images here or tap to select';
       imgDropZone.classList.remove('has-file'); imgProcessBtn.disabled = true;
       $('imgFileList').innerHTML = '';
       $('imgProgressSection').classList.remove('active');
       $('imgResults').classList.remove('active');
       $('imgResultsGrid').innerHTML = '';
+      $('imgDownloadAll').style.display = 'none';
       $('imgErrorMsg').classList.remove('active');
     });
 

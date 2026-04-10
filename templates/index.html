@@ -502,6 +502,10 @@
               <label class="sw"><input type="checkbox" id="imgAutoCrop"><span class="sl"></span></label>
               <span>Auto-trim transparent areas</span>
             </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="imgTrimSpacing"><span class="sl"></span></label>
+              <span>Remove extra spacing around image</span>
+            </div>
             <div class="row">
               <label>Padding</label>
               <input type="range" id="imgPadding" min="0" max="100" value="0">
@@ -1602,6 +1606,7 @@
         bg_type: bgType,
         bg_color: $('imgBgColor').value,
         auto_crop: $('imgAutoCrop').checked,
+        trim_spacing: $('imgTrimSpacing').checked,
         padding: parseInt($('imgPadding').value) || 0,
         width: parseInt($('imgWidth').value) || 0,
         format: document.querySelector('input[name="imgFormat"]:checked').value,

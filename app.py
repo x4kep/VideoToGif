@@ -851,6 +851,7 @@ def process_image():
     resize_width = opts.get("width", 0)
     out_format = opts.get("format", "png")
     auto_crop = opts.get("auto_crop", False)
+    trim_spacing = opts.get("trim_spacing", False)
     pad = opts.get("padding", 0)
 
     job_id = str(uuid4())
@@ -901,6 +902,19 @@ def process_image():
         # Auto-crop transparent areas
         if auto_crop:
             bbox = img.getbbox()
+            if bbox:
+                img = img.crop(bbox)
+
+        # Trim extra spacing: remove uniform-colored borders around content
+        if trim_spacing:
+            from PIL import ImageChops
+            # Sample the corner pixel as the assumed border color
+            border_color = img.getpixel((0, 0))
+            bg = Image.new(img.mode, img.size, border_color)
+            diff = ImageChops.difference(img, bg)
+            # Convert to grayscale to get a single-channel bbox
+            diff_gray = diff.convert("L")
+            bbox = diff_gray.getbbox()
             if bbox:
                 img = img.crop(bbox)
 

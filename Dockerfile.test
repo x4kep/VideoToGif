@@ -1,0 +1,26 @@
+# ---- Test Runner ----
+# Runs unit + integration tests inside Docker.
+# E2E/Playwright tests are excluded (need a browser).
+
+FROM python:3.12-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        gifsicle \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install prod + test dependencies
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+# Copy everything needed for tests
+COPY app.py pyproject.toml ./
+COPY templates/ templates/
+COPY scripts/ scripts/
+COPY tests/ tests/
+
+# Run unit + integration tests (skip e2e and a11y — no browser in container)
+CMD ["python", "-m", "pytest", "tests/unit", "tests/integration", "-v", "--tb=short"]

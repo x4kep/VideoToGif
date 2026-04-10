@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+    volumes:
+      # Mount templates for live reload during development
+      - ./templates:/app/templates:ro
+    restart: unless-stopped
+
+  # Run tests in a separate container
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./test-results:/app/test-results
+    profiles:
+      - test

@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF Studio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .container { width: 100%; max-width: 1040px; }
+    h1 { text-align: center; font-size: 1.6rem; margin-bottom: 20px; color: #fff; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 4px; background: #1a1a1a; border-radius: 12px; padding: 4px; margin-bottom: 20px;
+    }
+    .tab {
+      flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; color: #888; transition: all 0.2s; border: none; background: none;
+    }
+    .tab.active { background: #6c5ce7; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #444; border-radius: 16px; padding: 48px 24px;
+      text-align: center; cursor: pointer; transition: all 0.2s; background: #1a1a1a;
+    }
+    .drop-zone.dragover { border-color: #6c5ce7; background: #1e1a2e; }
+    .drop-zone.has-file { border-color: #00b894; border-style: solid; }
+    .drop-zone p { font-size: 1rem; color: #888; }
+    .drop-zone .filename { color: #00b894; font-weight: 600; word-break: break-all; }
+
+    /* Settings panel */
+    .settings { margin-top: 16px; }
+    .settings-toggle {
+      display: flex; align-items: center; gap: 8px; padding: 12px 0;
+      cursor: pointer; color: #888; font-size: 0.9rem; user-select: none;
+    }
+    .settings-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+    .settings-toggle .arrow.open { transform: rotate(90deg); }
+    .settings-body { display: none; }
+    .settings-body.open { display: block; }
+    .section {
+      background: #1a1a1a; border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 0.8rem; font-weight: 600; color: #6c5ce7;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+    }
+
+    /* Form controls */
+    .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .row:last-child { margin-bottom: 0; }
+    .row label { font-size: 0.85rem; color: #aaa; min-width: 90px; flex-shrink: 0; }
+    .row select, .row input[type="number"], .row input[type="text"] {
+      flex: 1; padding: 8px 10px; background: #252525; border: 1px solid #333;
+      border-radius: 8px; color: #e0e0e0; font-size: 0.85rem; outline: none;
+    }
+    .row select:focus, .row input:focus { border-color: #6c5ce7; }
+    .row input[type="range"] { flex: 1; accent-color: #6c5ce7; }
+    .range-val { font-size: 0.8rem; color: #888; min-width: 40px; text-align: right; }
+    textarea {
+      width: 100%; padding: 12px; background: #252525; border: 1px solid #333;
+      border-radius: 10px; color: #e0e0e0; font-size: 0.85rem; outline: none;
+      resize: vertical; min-height: 80px; font-family: inherit;
+    }
+    textarea:focus { border-color: #6c5ce7; }
+
+    /* Toggle switch */
+    .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .toggle-row:last-child { margin-bottom: 0; }
+    .sw { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .sw input { opacity: 0; width: 0; height: 0; }
+    .sw .sl {
+      position: absolute; inset: 0; background: #333; border-radius: 11px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .sw .sl::before {
+      content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%; transition: transform 0.2s;
+    }
+    .sw input:checked + .sl { background: #6c5ce7; }
+    .sw input:checked + .sl::before { transform: translateX(18px); }
+    .toggle-row span { font-size: 0.85rem; color: #aaa; cursor: pointer; }
+
+    /* Radio pills */
+    .radio-group { display: flex; gap: 8px; flex: 1; }
+    .radio-group label {
+      flex: 1; text-align: center; padding: 8px; background: #252525;
+      border: 1px solid #333; border-radius: 8px; cursor: pointer;
+      font-size: 0.85rem; color: #aaa; transition: all 0.2s; min-width: 0;
+    }
+    .radio-group input { display: none; }
+    .radio-group input:checked + span { color: #fff; }
+    .radio-group label:has(input:checked) { border-color: #6c5ce7; background: #1e1a2e; color: #fff; }
+
+    /* Button */
+    .btn {
+      margin-top: 20px; width: 100%; padding: 14px; border: none; border-radius: 12px;
+      background: #6c5ce7; color: #fff; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary {
+      margin-top: 12px; width: 100%; padding: 14px; border: none; border-radius: 12px;
+      background: #00b894; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+
+    /* Progress */
+    .progress-section { margin-top: 24px; display: none; }
+    .progress-section.active { display: block; }
+    .progress-bar-wrap {
+      background: #222; border-radius: 8px; height: 6px; overflow: hidden; margin-bottom: 12px;
+    }
+    .progress-bar {
+      height: 100%; background: #6c5ce7; width: 0%; transition: width 0.3s; border-radius: 8px;
+    }
+    .progress-text { font-size: 0.85rem; color: #888; text-align: center; }
+    .log {
+      margin-top: 12px; background: #1a1a1a; border-radius: 10px; padding: 12px;
+      font-family: "SF Mono", Monaco, monospace; font-size: 0.75rem; color: #888;
+      max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
+
+    /* Result */
+    .result-section { margin-top: 24px; display: none; text-align: center; }
+    .result-section.active { display: block; }
+    .result-section img {
+      max-width: 100%; max-height: 400px; border-radius: 12px;
+      background: repeating-conic-gradient(#222 0% 25%, #2a2a2a 0% 50%) 50% / 16px 16px;
+    }
+    .result-actions { margin-top: 16px; display: flex; gap: 12px; justify-content: center; }
+    .result-actions a, .result-actions button {
+      padding: 10px 20px; border-radius: 10px; font-size: 0.9rem;
+      font-weight: 600; text-decoration: none; cursor: pointer; border: none;
+    }
+    .btn-download { background: #00b894; color: #fff; }
+    .btn-reset { background: #333; color: #ccc; }
+    .error-msg {
+      margin-top: 16px; padding: 12px; background: #2d1515; border: 1px solid #5c2020;
+      border-radius: 10px; color: #ff6b6b; font-size: 0.85rem; display: none;
+    }
+    .error-msg.active { display: block; }
+
+    /* Prompt builder */
+    .prompt-section { margin-top: 16px; }
+    .prompt-section .section { margin-bottom: 12px; }
+    .prompt-output {
+      margin-top: 16px; background: #1a1a1a; border-radius: 12px; padding: 16px;
+      font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+      min-height: 60px; color: #ccc; position: relative; display: none;
+    }
+    .prompt-output.active { display: block; }
+    .copy-toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: #00b894; color: #fff; padding: 10px 24px; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 600; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; z-index: 99;
+    }
+    .copy-toast.show { opacity: 1; }
+    .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 6px 12px; background: #252525; border: 1px solid #333; border-radius: 20px;
+      font-size: 0.8rem; color: #aaa; cursor: pointer; transition: all 0.2s; user-select: none;
+    }
+    .chip.selected { border-color: #6c5ce7; background: #1e1a2e; color: #fff; }
+
+    /* Style cards with previews */
+    .style-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .style-card {
+      background: #252525; border: 2px solid #333; border-radius: 12px; cursor: pointer;
+      transition: all 0.2s; user-select: none; overflow: hidden;
+    }
+    .style-card:hover { border-color: #555; transform: translateY(-1px); }
+    .style-card.selected { border-color: #6c5ce7; background: #1e1a2e; }
+    .style-card .style-preview {
+      width: 100%; height: 90px; object-fit: cover; display: block;
+      background: #1a1a1a;
+    }
+    .style-card .style-preview-css {
+      width: 100%; height: 90px; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+    }
+    .style-card .style-name {
+      padding: 8px; text-align: center; font-size: 0.75rem; font-weight: 600;
+      color: #aaa;
+    }
+    .style-card.selected .style-name { color: #fff; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GIF Studio</h1>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="convert">Video to GIF</button>
+      <button class="tab" data-tab="prompt">Prompt Builder</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- ==================== TAB 1: CONVERTER ==================== -->
+    <div class="tab-content active" id="tab-convert">
+      <div class="drop-zone" id="dropZone">
+        <p id="dropText">Drop a video here or tap to select</p>
+      </div>
+      <input type="file" id="fileInput" accept="video/*" hidden>
+
+      <div class="settings">
+        <div class="settings-toggle" id="settingsToggle">
+          <span class="arrow" id="settingsArrow">&#9654;</span>
+          <span>Settings</span>
+        </div>
+        <div class="settings-body" id="settingsBody">
+          <div class="section">
+            <div class="section-title">Trim & Crop</div>
+            <div class="row">
+              <label>Start (s)</label>
+              <input type="number" id="optStart" value="0" min="0" step="0.1">
+            </div>
+            <div class="row">
+              <label>End (s)</label>
+              <input type="number" id="optEnd" value="0" min="0" step="0.1" placeholder="0 = full">
+            </div>
+            <div class="row">
+              <label>Crop</label>
+              <select id="optCrop">
+                <option value="none">None</option>
+                <option value="square">Square (center)</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+              </select>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Size & Quality</div>
+            <div class="row">
+              <label>Width</label>
+              <select id="optWidth">
+                <option value="0">Original</option>
+                <option value="640">640px</option>
+                <option value="480">480px</option>
+                <option value="320">320px</option>
+                <option value="240">240px</option>
+                <option value="160">160px</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>FPS</label>
+              <select id="optFps">
+                <option value="0">Original</option>
+                <option value="24">24</option>
+                <option value="15">15</option>
+                <option value="12">12</option>
+                <option value="10">10</option>
+                <option value="8">8</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Max colors</label>
+              <select id="optColors">
+                <option value="256">256</option>
+                <option value="128">128</option>
+                <option value="64">64</option>
+                <option value="32">32</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Lossy</label>
+              <input type="range" id="optLossy" min="0" max="200" value="0">
+              <span class="range-val" id="lossyVal">Off</span>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Playback</div>
+            <div class="row">
+              <label>Speed</label>
+              <select id="optSpeed">
+                <option value="0.25">0.25x</option>
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optReverse"><span class="sl"></span></label>
+              <span>Reverse</span>
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optBounce"><span class="sl"></span></label>
+              <span>Bounce (forward + backward)</span>
+            </div>
+            <div class="row">
+              <label>Loop</label>
+              <select id="optLoop">
+                <option value="0">Infinite</option>
+                <option value="1">Once</option>
+                <option value="2">2x</option>
+                <option value="3">3x</option>
+                <option value="5">5x</option>
+                <option value="10">10x</option>
+              </select>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Effects</div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optRemoveBg"><span class="sl"></span></label>
+              <span>Remove background</span>
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optBlurBg"><span class="sl"></span></label>
+              <span>Blur background</span>
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optAutoCrop"><span class="sl"></span></label>
+              <span>Auto-trim whitespace</span>
+            </div>
+            <div class="row">
+              <label>Padding</label>
+              <input type="number" id="optPadTop" value="0" min="0" placeholder="Top" style="width:60px;flex:none;">
+              <input type="number" id="optPadBottom" value="0" min="0" placeholder="Bottom" style="width:60px;flex:none;">
+              <input type="number" id="optPadLeft" value="0" min="0" placeholder="Left" style="width:60px;flex:none;">
+              <input type="number" id="optPadRight" value="0" min="0" placeholder="Right" style="width:60px;flex:none;">
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optGrayscale"><span class="sl"></span></label>
+              <span>Grayscale</span>
+            </div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="optSepia"><span class="sl"></span></label>
+              <span>Sepia</span>
+            </div>
+            <div class="row">
+              <label>Brightness</label>
+              <input type="range" id="optBrightness" min="-100" max="100" value="0">
+              <span class="range-val" id="brightnessVal">0</span>
+            </div>
+            <div class="row">
+              <label>Contrast</label>
+              <input type="range" id="optContrast" min="-100" max="100" value="0">
+              <span class="range-val" id="contrastVal">0</span>
+            </div>
+            <div class="row">
+              <label>Text</label>
+              <input type="text" id="optText" placeholder="Caption text">
+            </div>
+            <div class="row">
+              <label>Text pos</label>
+              <select id="optTextPos">
+                <option value="bottom">Bottom</option>
+                <option value="center">Center</option>
+                <option value="top">Top</option>
+              </select>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Output Format</div>
+            <div class="row">
+              <div class="radio-group">
+                <label><input type="radio" name="format" value="gif" checked><span>GIF</span></label>
+                <label><input type="radio" name="format" value="webp"><span>WebP</span></label>
+                <label><input type="radio" name="format" value="apng"><span>APNG</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" id="convertBtn" disabled>Convert</button>
+
+      <div class="progress-section" id="progressSection">
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        <p class="progress-text" id="progressText">Starting...</p>
+        <div class="log" id="log"></div>
+      </div>
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="result-section" id="resultSection">
+        <img id="resultImg" src="" alt="Result">
+        <div class="result-actions">
+          <a class="btn-download" id="downloadLink" href="#">Download</a>
+          <button class="btn-reset" id="resetBtn">New conversion</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: PROMPT BUILDER ==================== -->
+    <div class="tab-content" id="tab-prompt">
+      <div class="prompt-section">
+
+        <div class="section">
+          <div class="section-title">Subject</div>
+          <div class="row">
+            <textarea id="promptSubject" rows="2" placeholder="e.g. A cute robot mascot, a cat wearing sunglasses..."></textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Action / Animation</div>
+          <div class="chip-group" id="actionChips" style="margin-bottom: 10px;">
+            <div class="chip" data-val="waving hello">Wave</div>
+            <div class="chip" data-val="smiling and giving a thumbs up">Thumbs Up</div>
+            <div class="chip" data-val="dancing happily">Dancing</div>
+            <div class="chip" data-val="walking forward">Walking</div>
+            <div class="chip" data-val="running">Running</div>
+            <div class="chip" data-val="jumping with excitement">Jumping</div>
+            <div class="chip" data-val="nodding yes">Nodding</div>
+            <div class="chip" data-val="shaking head no">Head Shake</div>
+            <div class="chip" data-val="blinking and smiling">Blink & Smile</div>
+            <div class="chip" data-val="laughing">Laughing</div>
+            <div class="chip" data-val="clapping hands">Clapping</div>
+            <div class="chip" data-val="thinking with hand on chin">Thinking</div>
+            <div class="chip" data-val="spinning around">Spinning</div>
+            <div class="chip" data-val="bouncing up and down">Bouncing</div>
+            <div class="chip" data-val="flying through the air">Flying</div>
+            <div class="chip" data-val="sitting and typing on a laptop">Typing</div>
+            <div class="chip" data-val="celebrating with confetti">Celebrating</div>
+            <div class="chip" data-val="sleeping peacefully">Sleeping</div>
+            <div class="chip" data-val="doing a peace sign">Peace Sign</div>
+            <div class="chip" data-val="flexing muscles">Flexing</div>
+            <div class="chip" data-val="crying tears of joy">Crying Joy</div>
+            <div class="chip" data-val="blowing a kiss">Blowing Kiss</div>
+            <div class="chip" data-val="looking surprised with mouth open">Surprised</div>
+            <div class="chip" data-val="meditating in zen pose">Meditating</div>
+          </div>
+          <div class="row">
+            <textarea id="promptAction" rows="2" placeholder="e.g. waving hello, dancing, walking forward..."></textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Background</div>
+          <div class="chip-group" id="bgChips">
+            <div class="chip selected" data-val="solid white">White</div>
+            <div class="chip" data-val="solid green screen">Green screen</div>
+            <div class="chip" data-val="transparent">Transparent</div>
+            <div class="chip" data-val="gradient">Gradient</div>
+            <div class="chip" data-val="none">Custom</div>
+          </div>
+          <div class="row" style="margin-top: 10px; display: none;" id="bgCustomRow">
+            <input type="text" id="promptBgCustom" placeholder="Describe background...">
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Style</div>
+          <div class="style-grid" id="styleChips">
+            <div class="style-card selected" data-val="cartoon">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/boomrazzle-cartoon-bomb-mascot-logo.webp" alt="Cartoon" loading="lazy">
+              <div class="style-name">Cartoon</div>
+            </div>
+            <div class="style-card" data-val="cute kawaii">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/catnoodle-adorable-cat-mascot-logo.webp" alt="Cute / Kawaii" loading="lazy">
+              <div class="style-name">Cute / Kawaii</div>
+            </div>
+            <div class="style-card" data-val="esports gaming">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/rascal-gaming-mascot-logo-example.webp" alt="Esports / Gaming" loading="lazy">
+              <div class="style-name">Esports / Gaming</div>
+            </div>
+            <div class="style-card" data-val="minimalist">
+              <img class="style-preview" src="https://www.logoai.com/uploads/articles/2024/03/26/17114304172626824.png" alt="Minimalist" loading="lazy">
+              <div class="style-name">Minimalist</div>
+            </div>
+            <div class="style-card" data-val="3D mascot">
+              <img class="style-preview" src="https://www.logoai.com/uploads/articles/2024/03/26/17114258529720745.png" alt="3D Mascot" loading="lazy">
+              <div class="style-name">3D Mascot</div>
+            </div>
+            <div class="style-card" data-val="flat design">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/ovito-mascot-logo-design.webp" alt="Flat Design" loading="lazy">
+              <div class="style-name">Flat Design</div>
+            </div>
+            <div class="style-card" data-val="vintage retro">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/wild-child-kombucha-mascot-logo.webp" alt="Vintage / Retro" loading="lazy">
+              <div class="style-name">Vintage / Retro</div>
+            </div>
+            <div class="style-card" data-val="tech futuristic cyberpunk neon">
+              <div class="style-preview-css" style="background:linear-gradient(135deg,#0a0a2e,#1a0a3e);color:#0ff;text-shadow:0 0 10px #0ff,0 0 20px #0ff;">&#9883;</div>
+              <div class="style-name">Tech / Futuristic</div>
+            </div>
+            <div class="style-card" data-val="animal mascot">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/cute-animals-mascot-logos.webp" alt="Animal Mascot" loading="lazy">
+              <div class="style-name">Animal Mascot</div>
+            </div>
+            <div class="style-card" data-val="hero character">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/artemis-goddess-mascot-logo-design.webp" alt="Hero / Character" loading="lazy">
+              <div class="style-name">Hero / Character</div>
+            </div>
+            <div class="style-card" data-val="pixel art retro game 8-bit">
+              <img class="style-preview" src="https://mascotmashup.com/images/linus-torvalds.png" alt="Pixel / Retro Game" loading="lazy">
+              <div class="style-name">Pixel / Retro Game</div>
+            </div>
+            <div class="style-card" data-val="robot mascot">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/iron-chimp-mascot-logo.webp" alt="Robot Mascot" loading="lazy">
+              <div class="style-name">Robot Mascot</div>
+            </div>
+            <div class="style-card" data-val="abstract">
+              <div class="style-preview-css" style="background:linear-gradient(135deg,#6c5ce7,#fd79a8,#fdcb6e);"></div>
+              <div class="style-name">Abstract</div>
+            </div>
+            <div class="style-card" data-val="playful whimsical">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/family-mart-colorful-mascot-logo.webp" alt="Playful / Whimsical" loading="lazy">
+              <div class="style-name">Playful / Whimsical</div>
+            </div>
+            <div class="style-card" data-val="bold outline sticker">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/tapsey-mascot-logo-example.webp" alt="Bold Outline / Sticker" loading="lazy">
+              <div class="style-name">Bold Outline / Sticker</div>
+            </div>
+            <div class="style-card" data-val="gradient modern">
+              <div class="style-preview-css" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb,#8fd3f4);"></div>
+              <div class="style-name">Gradient Modern</div>
+            </div>
+            <div class="style-card" data-val="hand-drawn sketch">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/old-man-mascot-logo.webp" alt="Hand-Drawn" loading="lazy">
+              <div class="style-name">Hand-Drawn</div>
+            </div>
+            <div class="style-card" data-val="glassmorphism frosted glass translucent">
+              <div class="style-preview-css" style="background:linear-gradient(135deg,#667eea,#764ba2);"><div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);border-radius:10px;width:60px;height:50px;"></div></div>
+              <div class="style-name">Glassmorphism</div>
+            </div>
+            <div class="style-card" data-val="geometric low-poly">
+              <div class="style-preview-css" style="background:#1a1a2e;color:#e94560;font-size:3rem;">&#9670;&#9671;&#9670;</div>
+              <div class="style-name">Geometric</div>
+            </div>
+            <div class="style-card" data-val="corporate friendly professional">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/good-rizqi-educational-mascot-logo.webp" alt="Corporate Friendly" loading="lazy">
+              <div class="style-name">Corporate Friendly</div>
+            </div>
+            <div class="style-card" data-val="anime">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/bakpao-cute-asian-mascot-logo.webp" alt="Anime" loading="lazy">
+              <div class="style-name">Anime</div>
+            </div>
+            <div class="style-card" data-val="realistic">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/fierce-bear-mascot-logo.webp" alt="Realistic" loading="lazy">
+              <div class="style-name">Realistic</div>
+            </div>
+            <div class="style-card" data-val="claymation">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/dr-waffles-mascot-logo-design.webp" alt="Claymation" loading="lazy">
+              <div class="style-name">Claymation</div>
+            </div>
+            <div class="style-card" data-val="watercolor">
+              <img class="style-preview" src="https://images.reallygooddesigns.com/2025/04/mascot-logo-peacock.webp" alt="Watercolor" loading="lazy">
+              <div class="style-name">Watercolor</div>
+            </div>
+            <div class="style-card" data-val="3D render">
+              <img class="style-preview" src="https://www.logoai.com/uploads/articles/2024/03/26/17114272623132108.png" alt="3D Render" loading="lazy">
+              <div class="style-name">3D Render</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Video Settings</div>
+          <div class="row">
+            <label>Duration</label>
+            <select id="promptDuration">
+              <option value="2 seconds">2s</option>
+              <option value="4 seconds">4s</option>
+              <option value="5 seconds" selected>5s</option>
+              <option value="8 seconds">8s</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>Camera</label>
+            <select id="promptCamera">
+              <option value="static front-facing">Static front</option>
+              <option value="static side view">Static side</option>
+              <option value="slowly orbiting">Orbit</option>
+              <option value="slowly zooming in">Zoom in</option>
+              <option value="top-down view">Top down</option>
+            </select>
+          </div>
+          <div class="toggle-row">
+            <label class="sw"><input type="checkbox" id="promptLoop" checked><span class="sl"></span></label>
+            <span>Seamless loop</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Extra Instructions</div>
+          <div class="row">
+            <textarea id="promptExtra" rows="2" placeholder="Any additional details..."></textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Logo Reference (optional)</div>
+          <p style="font-size:0.8rem;color:#666;margin-bottom:10px;">Upload a reference logo to use as style inspiration. The AI will imitate its style, colors and vibe — not copy the design.</p>
+          <div class="drop-zone" id="refDropZone" style="padding:24px 16px;min-height:0;">
+            <p id="refDropText" style="font-size:0.85rem;">Drop a reference image or tap to select</p>
+            <img id="refPreview" style="display:none;max-height:100px;border-radius:8px;margin-top:8px;">
+          </div>
+          <input type="file" id="refFileInput" accept="image/*" hidden>
+          <button id="refClearBtn" style="display:none;margin-top:8px;padding:6px 14px;background:#333;border:none;border-radius:8px;color:#aaa;font-size:0.8rem;cursor:pointer;">Remove reference</button>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="btn" id="generatePromptBtn" style="margin-top:0;flex:1;">Generate Prompt</button>
+          <button class="btn" id="aiGenerateBtn" style="margin-top:0;flex:1;background:#333;color:#555;cursor:not-allowed;" disabled title="Set up Gemini API key in Settings to enable">Generate with AI</button>
+        </div>
+
+        <div class="prompt-output" id="promptOutput"></div>
+
+        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+          <button class="btn-secondary" id="copyPromptBtn" style="display:none;flex:1;margin-top:0;">Copy to Clipboard</button>
+          <button class="btn" id="genLogoBtn" style="display:none;flex:1;margin-top:0;background:#6c5ce7;">Generate Logo</button>
+          <button class="btn" id="genImageBtn" style="display:none;flex:1;margin-top:0;background:#e17055;">Generate Image</button>
+          <button class="btn" id="genVideoBtn" style="display:none;flex:1;margin-top:0;background:#0984e3;">Generate Video</button>
+        </div>
+
+        <!-- Generated media result -->
+        <div id="mediaResult" style="display:none;margin-top:16px;text-align:center;">
+          <div id="mediaSpinner" style="display:none;padding:32px;">
+            <div style="display:inline-block;width:40px;height:40px;border:3px solid #333;border-top-color:#6c5ce7;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <p id="mediaStatus" style="margin-top:12px;font-size:0.85rem;color:#888;">Generating...</p>
+          </div>
+          <img id="mediaImg" style="display:none;max-width:100%;max-height:500px;border-radius:12px;background:repeating-conic-gradient(#222 0% 25%,#2a2a2a 0% 50%) 50%/16px 16px;">
+          <video id="mediaVid" style="display:none;max-width:100%;max-height:500px;border-radius:12px;" controls autoplay loop></video>
+          <div id="mediaActions" style="display:none;margin-top:12px;display:flex;gap:12px;justify-content:center;">
+            <a id="mediaDownload" class="btn-download" href="#" download style="display:none;">Download</a>
+            <button id="mediaToConverter" class="btn-reset" style="display:none;">Send to Converter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: SETTINGS ==================== -->
+    <div class="tab-content" id="tab-settings">
+      <div class="section">
+        <div class="section-title">Gemini API</div>
+        <p style="font-size:0.85rem;color:#888;margin-bottom:12px;">Enter your Google Gemini API key to enable AI-powered prompt generation. Get a key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6c5ce7;">Google AI Studio</a>.</p>
+        <div class="row">
+          <label>API Key</label>
+          <input type="password" id="geminiApiKey" placeholder="AIza..." style="flex:1;padding:8px 10px;background:#252525;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:0.85rem;outline:none;">
+          <button id="toggleKeyVisibility" style="background:#333;border:none;color:#aaa;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.8rem;">Show</button>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <label>Model</label>
+          <select id="geminiModel" style="flex:1;padding:8px 10px;background:#252525;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:0.85rem;outline:none;">
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+            <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
+            <option value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro</option>
+          </select>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button class="btn" id="saveSettingsBtn" style="margin-top:0;flex:1;">Save Settings</button>
+          <button id="testApiBtn" style="flex:1;padding:10px;border:none;border-radius:12px;background:#333;color:#aaa;font-size:0.9rem;font-weight:600;cursor:pointer;">Test Connection</button>
+        </div>
+        <div id="settingsStatus" style="margin-top:12px;font-size:0.85rem;display:none;padding:10px;border-radius:8px;"></div>
+      </div>
+    </div>
+
+    <div class="copy-toast" id="copyToast">Copied!</div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    // ===== Tab switching =====
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        $('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ===== Chip selectors =====
+    document.querySelectorAll('.chip-group').forEach(group => {
+      group.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          // Action chips fill textarea instead of single-select
+          if (group.id === 'actionChips') {
+            group.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            $('promptAction').value = chip.dataset.val;
+            return;
+          }
+          group.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          if (group.id === 'bgChips') {
+            $('bgCustomRow').style.display = chip.dataset.val === 'none' ? 'flex' : 'none';
+          }
+        });
+      });
+    });
+
+    // ===== Style card selectors =====
+    document.querySelectorAll('.style-grid').forEach(grid => {
+      grid.querySelectorAll('.style-card').forEach(card => {
+        card.addEventListener('click', () => {
+          grid.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+        });
+      });
+    });
+
+    // ===== CONVERTER TAB =====
+    const dropZone = $('dropZone'), fileInput = $('fileInput'), dropText = $('dropText');
+    const convertBtn = $('convertBtn');
+    const progressSection = $('progressSection'), progressBar = $('progressBar');
+    const progressText = $('progressText'), logEl = $('log');
+    const resultSection = $('resultSection'), resultImg = $('resultImg');
+    const downloadLink = $('downloadLink'), resetBtn = $('resetBtn');
+    const errorMsg = $('errorMsg');
+    let selectedFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) selectFile(fileInput.files[0]); });
+
+    function selectFile(file) {
+      selectedFile = file;
+      dropText.innerHTML = '<span class="filename">' + file.name + '</span>';
+      dropZone.classList.add('has-file');
+      convertBtn.disabled = false;
+    }
+
+    $('settingsToggle').addEventListener('click', () => {
+      $('settingsBody').classList.toggle('open');
+      $('settingsArrow').classList.toggle('open');
+    });
+    $('optLossy').addEventListener('input', e => $('lossyVal').textContent = e.target.value == 0 ? 'Off' : e.target.value);
+    $('optBrightness').addEventListener('input', e => $('brightnessVal').textContent = e.target.value);
+    $('optContrast').addEventListener('input', e => $('contrastVal').textContent = e.target.value);
+    $('optRemoveBg').addEventListener('change', e => { if (e.target.checked) $('optBlurBg').checked = false; });
+    $('optBlurBg').addEventListener('change', e => { if (e.target.checked) $('optRemoveBg').checked = false; });
+
+    function getOptions() {
+      return {
+        start: parseFloat($('optStart').value) || 0,
+        end: parseFloat($('optEnd').value) || 0,
+        crop: $('optCrop').value,
+        width: parseInt($('optWidth').value) || 0,
+        fps: parseFloat($('optFps').value) || 0,
+        max_colors: parseInt($('optColors').value) || 256,
+        lossy: parseInt($('optLossy').value) || 0,
+        speed: parseFloat($('optSpeed').value) || 1,
+        reverse: $('optReverse').checked,
+        bounce: $('optBounce').checked,
+        loop: parseInt($('optLoop').value),
+        remove_bg: $('optRemoveBg').checked,
+        blur_bg: $('optBlurBg').checked,
+        auto_crop: $('optAutoCrop').checked,
+        pad_top: parseInt($('optPadTop').value) || 0,
+        pad_bottom: parseInt($('optPadBottom').value) || 0,
+        pad_left: parseInt($('optPadLeft').value) || 0,
+        pad_right: parseInt($('optPadRight').value) || 0,
+        grayscale: $('optGrayscale').checked,
+        sepia: $('optSepia').checked,
+        brightness: parseInt($('optBrightness').value) || 0,
+        contrast: parseInt($('optContrast').value) || 0,
+        text: $('optText').value,
+        text_pos: $('optTextPos').value,
+        format: document.querySelector('input[name="format"]:checked').value,
+      };
+    }
+
+    convertBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      convertBtn.disabled = true;
+      progressSection.classList.add('active');
+      resultSection.classList.remove('active');
+      errorMsg.classList.remove('active');
+      progressBar.style.width = '0%';
+      progressText.textContent = 'Uploading...';
+      logEl.textContent = '';
+
+      const form = new FormData();
+      form.append('video', selectedFile);
+      form.append('options', JSON.stringify(getOptions()));
+
+      try {
+        const res = await fetch('/convert', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        progressText.textContent = 'Processing...';
+        const evtSource = new EventSource('/progress/' + data.job_id);
+        evtSource.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.log) {
+            logEl.textContent += msg.log + '\n';
+            logEl.scrollTop = logEl.scrollHeight;
+            const m = msg.log.match(/(?:Processing|Blurring) frame (\d+)\/(\d+)/);
+            if (m) {
+              const pct = Math.round((parseInt(m[1]) / parseInt(m[2])) * 100);
+              progressBar.style.width = pct + '%';
+              progressText.textContent = msg.log;
+            } else if (msg.log.includes('Extracting')) {
+              progressText.textContent = 'Extracting frames...'; progressBar.style.width = '5%';
+            } else if (msg.log.includes('palette')) {
+              progressText.textContent = 'Generating palette...'; progressBar.style.width = '90%';
+            } else if (msg.log.includes('Assembling')) {
+              progressText.textContent = 'Assembling output...'; progressBar.style.width = '95%';
+            } else if (msg.log.includes('Created:')) {
+              progressBar.style.width = '100%'; progressText.textContent = msg.log;
+            }
+          }
+          if (msg.status === 'done') {
+            evtSource.close(); progressBar.style.width = '100%'; progressText.textContent = 'Done!';
+            resultImg.src = '/result/' + data.job_id + '?t=' + Date.now();
+            downloadLink.href = '/download/' + data.job_id;
+            resultSection.classList.add('active'); convertBtn.disabled = false;
+          } else if (msg.status === 'error') {
+            evtSource.close();
+            errorMsg.textContent = 'Conversion failed. Check the log for details.';
+            errorMsg.classList.add('active'); convertBtn.disabled = false;
+          }
+        };
+        evtSource.onerror = () => {
+          evtSource.close(); errorMsg.textContent = 'Connection lost.';
+          errorMsg.classList.add('active'); convertBtn.disabled = false;
+        };
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.classList.add('active'); convertBtn.disabled = false;
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      selectedFile = null; fileInput.value = '';
+      dropText.textContent = 'Drop a video here or tap to select';
+      dropZone.classList.remove('has-file'); convertBtn.disabled = true;
+      progressSection.classList.remove('active'); resultSection.classList.remove('active');
+      errorMsg.classList.remove('active'); progressBar.style.width = '0%'; logEl.textContent = '';
+    });
+
+    // ===== PROMPT BUILDER TAB =====
+    function getSelectedChip(groupId) {
+      const sel = document.querySelector('#' + groupId + ' .chip.selected')
+             || document.querySelector('#' + groupId + ' .style-card.selected');
+      return sel ? sel.dataset.val : '';
+    }
+
+    $('generatePromptBtn').addEventListener('click', () => {
+      const subject = $('promptSubject').value.trim();
+      const action = $('promptAction').value.trim();
+      let bg = getSelectedChip('bgChips');
+      if (bg === 'none') bg = $('promptBgCustom').value.trim() || 'plain background';
+      const style = getSelectedChip('styleChips');
+      const duration = $('promptDuration').value;
+      const camera = $('promptCamera').value;
+      const loop = $('promptLoop').checked;
+      const extra = $('promptExtra').value.trim();
+
+      if (!subject) {
+        $('promptOutput').textContent = 'Please describe a subject.';
+        $('promptOutput').classList.add('active');
+        $('copyPromptBtn').style.display = 'none';
+        return;
+      }
+
+      let prompt = `Generate a ${duration} video of ${subject}`;
+      if (action) prompt += ` ${action}`;
+      prompt += `.`;
+      prompt += `\n\nStyle: ${style}.`;
+      prompt += `\nBackground: ${bg}.`;
+      prompt += `\nCamera: ${camera}.`;
+      if (loop) prompt += `\nThe animation should seamlessly loop (last frame connects smoothly to first frame).`;
+      if (extra) prompt += `\n\n${extra}`;
+      prompt += `\n\nThe subject should be clearly separated from the background for easy background removal. Keep the background simple and uniform. Ensure there is at least 10 pixels of clean empty space around the subject on all sides — no part of the subject should touch or be cut off by the frame edges.`;
+
+      $('promptOutput').textContent = prompt;
+      $('promptOutput').classList.add('active');
+      $('copyPromptBtn').style.display = 'block';
+    });
+
+    $('copyPromptBtn').addEventListener('click', () => {
+      const text = $('promptOutput').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = $('copyToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      });
+    });
+
+    // ===== SETTINGS =====
+    function loadSettings() {
+      const key = localStorage.getItem('gemini_api_key') || '';
+      const model = localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+      $('geminiApiKey').value = key;
+      $('geminiModel').value = model;
+      updateAiButton();
+    }
+
+    function updateAiButton() {
+      const key = localStorage.getItem('gemini_api_key');
+      const btn = $('aiGenerateBtn');
+      if (key) {
+        btn.disabled = false;
+        btn.style.background = '#00b894';
+        btn.style.color = '#fff';
+        btn.style.cursor = 'pointer';
+        btn.title = 'Generate an enhanced prompt using Gemini AI';
+      } else {
+        btn.disabled = true;
+        btn.style.background = '#333';
+        btn.style.color = '#555';
+        btn.style.cursor = 'not-allowed';
+        btn.title = 'Set up Gemini API key in Settings to enable';
+      }
+    }
+
+    function showSettingsStatus(msg, isError) {
+      const el = $('settingsStatus');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = isError ? '#2d1515' : '#152d1a';
+      el.style.color = isError ? '#ff6b6b' : '#00b894';
+      el.style.border = `1px solid ${isError ? '#5c2020' : '#1a5c20'}`;
+      setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    $('saveSettingsBtn').addEventListener('click', () => {
+      const key = $('geminiApiKey').value.trim();
+      const model = $('geminiModel').value;
+      if (!key) {
+        localStorage.removeItem('gemini_api_key');
+        localStorage.removeItem('gemini_model');
+        showSettingsStatus('Settings cleared.', false);
+      } else {
+        localStorage.setItem('gemini_api_key', key);
+        localStorage.setItem('gemini_model', model);
+        showSettingsStatus('Settings saved!', false);
+      }
+      updateAiButton();
+    });
+
+    $('toggleKeyVisibility').addEventListener('click', () => {
+      const inp = $('geminiApiKey');
+      const btn = $('toggleKeyVisibility');
+      if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+      else { inp.type = 'password'; btn.textContent = 'Show'; }
+    });
+
+    $('testApiBtn').addEventListener('click', async () => {
+      const key = $('geminiApiKey').value.trim();
+      const model = $('geminiModel').value;
+      if (!key) { showSettingsStatus('Enter an API key first.', true); return; }
+      $('testApiBtn').textContent = 'Testing...';
+      try {
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, model, prompt: 'Say "Connection successful!" in exactly those words.' }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        showSettingsStatus('Connection successful!', false);
+      } catch (e) {
+        showSettingsStatus('Connection failed: ' + e.message, true);
+      }
+      $('testApiBtn').textContent = 'Test Connection';
+    });
+
+    // ===== AI GENERATE =====
+    $('aiGenerateBtn').addEventListener('click', async () => {
+      const key = localStorage.getItem('gemini_api_key');
+      const model = localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+      if (!key) return;
+
+      const subject = $('promptSubject').value.trim();
+      const action = $('promptAction').value.trim();
+      let bg = getSelectedChip('bgChips');
+      if (bg === 'none') bg = $('promptBgCustom').value.trim() || 'plain background';
+      const style = getSelectedChip('styleChips');
+      const duration = $('promptDuration').value;
+      const camera = $('promptCamera').value;
+      const loop = $('promptLoop').checked;
+      const extra = $('promptExtra').value.trim();
+
+      if (!subject) {
+        $('promptOutput').textContent = 'Please describe a subject.';
+        $('promptOutput').classList.add('active');
+        $('copyPromptBtn').style.display = 'none';
+        return;
+      }
+
+      const aiBtn = $('aiGenerateBtn');
+      aiBtn.disabled = true; aiBtn.textContent = 'Generating...';
+
+      const userContext = [
+        `Subject: ${subject}`,
+        action ? `Action: ${action}` : '',
+        `Style: ${style}`,
+        `Background: ${bg}`,
+        `Duration: ${duration}`,
+        `Camera: ${camera}`,
+        loop ? 'Seamless loop: yes' : '',
+        extra ? `Extra: ${extra}` : '',
+      ].filter(Boolean).join('\n');
+
+      const systemPrompt = `You are an expert prompt engineer for AI video generation tools (like Veo, Runway, Kling, Sora). The user will give you parameters for a mascot/character animation. Write a detailed, optimized prompt that will produce the best possible video output. The prompt should:
+1. Be vivid and specific about the character design matching the chosen style
+2. Describe the animation/motion clearly
+3. Specify background and lighting
+4. Include technical details for video generation (camera, loop, duration)
+5. Ensure the subject is clearly separated from background for easy background removal
+6. Keep at least 10px of clean space around the subject edges
+7. Output ONLY the final prompt text, no explanations or labels.`;
+
+      try {
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, model, prompt: userContext, system: systemPrompt }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        $('promptOutput').textContent = data.text;
+        $('promptOutput').classList.add('active');
+        $('copyPromptBtn').style.display = 'block';
+      } catch (e) {
+        $('promptOutput').textContent = 'AI Error: ' + e.message;
+        $('promptOutput').classList.add('active');
+        $('copyPromptBtn').style.display = 'none';
+      }
+      aiBtn.disabled = false; aiBtn.textContent = 'Generate with AI';
+    });
+
+    // ===== Show/hide generate media buttons when prompt is ready =====
+    function showMediaButtons() {
+      const key = localStorage.getItem('gemini_api_key');
+      const hasPrompt = $('promptOutput').classList.contains('active') &&
+                        $('promptOutput').textContent &&
+                        !$('promptOutput').textContent.startsWith('Please ') &&
+                        !$('promptOutput').textContent.startsWith('AI Error');
+      $('genLogoBtn').style.display = (key && hasPrompt) ? 'block' : 'none';
+      $('genImageBtn').style.display = (key && hasPrompt) ? 'block' : 'none';
+      $('genVideoBtn').style.display = (key && hasPrompt) ? 'block' : 'none';
+    }
+
+    // Observe prompt output changes
+    const origShowPrompt = () => showMediaButtons();
+    new MutationObserver(origShowPrompt).observe($('promptOutput'), { childList: true, characterData: true, subtree: true });
+
+    function resetMedia() {
+      $('mediaResult').style.display = 'none';
+      $('mediaSpinner').style.display = 'none';
+      $('mediaImg').style.display = 'none';
+      $('mediaVid').style.display = 'none';
+      $('mediaDownload').style.display = 'none';
+      $('mediaToConverter').style.display = 'none';
+    }
+
+    // ===== REFERENCE IMAGE UPLOAD =====
+    let refImageBase64 = null;
+    let refImageMime = null;
+    const refDropZone = $('refDropZone');
+    const refFileInput = $('refFileInput');
+
+    refDropZone.addEventListener('click', () => refFileInput.click());
+    refDropZone.addEventListener('dragover', e => { e.preventDefault(); refDropZone.classList.add('dragover'); });
+    refDropZone.addEventListener('dragleave', () => refDropZone.classList.remove('dragover'));
+    refDropZone.addEventListener('drop', e => {
+      e.preventDefault(); refDropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) loadRefImage(e.dataTransfer.files[0]);
+    });
+    refFileInput.addEventListener('change', () => { if (refFileInput.files.length) loadRefImage(refFileInput.files[0]); });
+
+    function loadRefImage(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        refImageBase64 = base64;
+        refImageMime = file.type || 'image/png';
+        $('refPreview').src = reader.result;
+        $('refPreview').style.display = 'block';
+        $('refDropText').textContent = file.name;
+        refDropZone.classList.add('has-file');
+        $('refClearBtn').style.display = 'inline-block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    $('refClearBtn').addEventListener('click', () => {
+      refImageBase64 = null; refImageMime = null;
+      $('refPreview').style.display = 'none';
+      $('refDropText').textContent = 'Drop a reference image or tap to select';
+      refDropZone.classList.remove('has-file');
+      $('refClearBtn').style.display = 'none';
+      refFileInput.value = '';
+    });
+
+    // ===== GENERATE LOGO =====
+    $('genLogoBtn').addEventListener('click', async () => {
+      const key = localStorage.getItem('gemini_api_key');
+      if (!key) return;
+      const subject = $('promptSubject').value.trim() || $('promptOutput').textContent;
+      if (!subject) return;
+
+      const style = getSelectedChip('styleChips');
+
+      resetMedia();
+      $('mediaResult').style.display = 'block';
+      $('mediaSpinner').style.display = 'block';
+      $('mediaStatus').textContent = 'Generating logo...';
+      $('genLogoBtn').disabled = true;
+      $('genLogoBtn').textContent = 'Generating...';
+
+      try {
+        const res = await fetch('/api/gemini/logo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key,
+            subject,
+            style,
+            ref_image: refImageBase64,
+            ref_mime: refImageMime,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        $('mediaSpinner').style.display = 'none';
+        const dataUrl = `data:${data.mime};base64,${data.image}`;
+        $('mediaImg').src = dataUrl;
+        $('mediaImg').style.display = 'block';
+        $('mediaDownload').href = dataUrl;
+        $('mediaDownload').download = 'logo.png';
+        $('mediaDownload').style.display = 'inline-block';
+      } catch (e) {
+        $('mediaSpinner').querySelector('div').style.display = 'none';
+        $('mediaStatus').textContent = 'Error: ' + e.message;
+      }
+      $('genLogoBtn').disabled = false;
+      $('genLogoBtn').textContent = 'Generate Logo';
+    });
+
+    // ===== GENERATE IMAGE =====
+    $('genImageBtn').addEventListener('click', async () => {
+      const key = localStorage.getItem('gemini_api_key');
+      if (!key) return;
+      const prompt = $('promptOutput').textContent;
+      if (!prompt) return;
+
+      resetMedia();
+      $('mediaResult').style.display = 'block';
+      $('mediaSpinner').style.display = 'block';
+      $('mediaStatus').textContent = 'Generating image...';
+      $('genImageBtn').disabled = true;
+      $('genImageBtn').textContent = 'Generating...';
+
+      try {
+        const res = await fetch('/api/gemini/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, prompt, aspect: '1:1' }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        $('mediaSpinner').style.display = 'none';
+        const dataUrl = `data:${data.mime};base64,${data.image}`;
+        $('mediaImg').src = dataUrl;
+        $('mediaImg').style.display = 'block';
+        $('mediaDownload').href = dataUrl;
+        $('mediaDownload').download = 'generated.png';
+        $('mediaDownload').style.display = 'inline-block';
+      } catch (e) {
+        $('mediaSpinner').style.display = 'none';
+        $('mediaStatus').textContent = 'Error: ' + e.message;
+        $('mediaSpinner').style.display = 'block';
+        $('mediaSpinner').querySelector('div').style.display = 'none';
+      }
+      $('genImageBtn').disabled = false;
+      $('genImageBtn').textContent = ' Generate Image';
+    });
+
+    // ===== GENERATE VIDEO =====
+    $('genVideoBtn').addEventListener('click', async () => {
+      const key = localStorage.getItem('gemini_api_key');
+      if (!key) return;
+      const prompt = $('promptOutput').textContent;
+      if (!prompt) return;
+
+      resetMedia();
+      $('mediaResult').style.display = 'block';
+      $('mediaSpinner').style.display = 'block';
+      $('mediaStatus').textContent = 'Starting video generation...';
+      $('genVideoBtn').disabled = true;
+      $('genVideoBtn').textContent = 'Generating...';
+
+      try {
+        const res = await fetch('/api/gemini/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, prompt, aspect: '16:9', duration: '8' }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        // Poll for completion
+        const opId = data.op_id;
+        let attempts = 0;
+        const maxAttempts = 120; // 10 minutes max
+        const poll = async () => {
+          attempts++;
+          $('mediaStatus').textContent = `Generating video... (${attempts * 5}s elapsed)`;
+          try {
+            const pollRes = await fetch(`/api/gemini/video/${opId}`);
+            const pollData = await pollRes.json();
+            if (pollData.error) throw new Error(pollData.error);
+            if (pollData.done) {
+              $('mediaSpinner').style.display = 'none';
+              $('mediaVid').src = `/api/gemini/video/${opId}/download`;
+              $('mediaVid').style.display = 'block';
+              $('mediaDownload').href = `/api/gemini/video/${opId}/download`;
+              $('mediaDownload').download = 'generated.mp4';
+              $('mediaDownload').style.display = 'inline-block';
+              $('mediaToConverter').style.display = 'inline-block';
+              $('genVideoBtn').disabled = false;
+              $('genVideoBtn').textContent = ' Generate Video';
+              return;
+            }
+            if (attempts < maxAttempts) {
+              setTimeout(poll, 5000);
+            } else {
+              throw new Error('Video generation timed out');
+            }
+          } catch (e) {
+            $('mediaSpinner').style.display = 'none';
+            $('mediaStatus').textContent = 'Error: ' + e.message;
+            $('mediaSpinner').style.display = 'block';
+            $('mediaSpinner').querySelector('div').style.display = 'none';
+            $('genVideoBtn').disabled = false;
+            $('genVideoBtn').textContent = ' Generate Video';
+          }
+        };
+        setTimeout(poll, 5000);
+      } catch (e) {
+        $('mediaSpinner').style.display = 'none';
+        $('mediaStatus').textContent = 'Error: ' + e.message;
+        $('mediaSpinner').style.display = 'block';
+        $('mediaSpinner').querySelector('div').style.display = 'none';
+        $('genVideoBtn').disabled = false;
+        $('genVideoBtn').textContent = ' Generate Video';
+      }
+    });
+
+    // ===== Send generated video to converter tab =====
+    $('mediaToConverter').addEventListener('click', async () => {
+      const videoSrc = $('mediaVid').src;
+      if (!videoSrc) return;
+      try {
+        const res = await fetch(videoSrc);
+        const blob = await res.blob();
+        const file = new File([blob], 'generated.mp4', { type: 'video/mp4' });
+        // Switch to converter tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector('[data-tab="convert"]').classList.add('active');
+        $('tab-convert').classList.add('active');
+        // Set file
+        selectFile(file);
+      } catch (e) {
+        alert('Failed to send video to converter: ' + e.message);
+      }
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>

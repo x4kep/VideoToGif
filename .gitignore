@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.gif
+*.mp4
+scripts/remove_bg
+scripts/remove_background
+.DS_Store

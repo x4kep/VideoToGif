@@ -477,6 +477,21 @@
               <label class="sw"><input type="checkbox" id="imgRemoveBg"><span class="sl"></span></label>
               <span>Remove background (Apple Vision)</span>
             </div>
+            <div id="imgBgOptions" style="display:none;margin-top:10px;">
+              <div class="row">
+                <label>Replace with</label>
+                <div class="radio-group">
+                  <label><input type="radio" name="imgBgType" value="transparent" checked><span>Transparent</span></label>
+                  <label><input type="radio" name="imgBgType" value="white"><span>White</span></label>
+                  <label><input type="radio" name="imgBgType" value="black"><span>Black</span></label>
+                  <label><input type="radio" name="imgBgType" value="custom"><span>Custom</span></label>
+                </div>
+              </div>
+              <div class="row" id="imgBgColorRow" style="display:none;">
+                <label>Color</label>
+                <input type="color" id="imgBgColor" value="#00b894" style="width:50px;height:32px;padding:2px;background:#252525;border:1px solid #333;border-radius:8px;cursor:pointer;">
+              </div>
+            </div>
           </div>
           <div class="section">
             <div class="section-title">Adjustments</div>
@@ -1521,6 +1536,17 @@
     });
     $('imgPadding').addEventListener('input', e => $('imgPaddingVal').textContent = e.target.value);
 
+    // Show/hide BG options when remove BG is toggled
+    $('imgRemoveBg').addEventListener('change', e => {
+      $('imgBgOptions').style.display = e.target.checked ? 'block' : 'none';
+    });
+    // Show/hide custom color picker
+    document.querySelectorAll('input[name="imgBgType"]').forEach(r => {
+      r.addEventListener('change', () => {
+        $('imgBgColorRow').style.display = document.querySelector('input[name="imgBgType"]:checked').value === 'custom' ? 'flex' : 'none';
+      });
+    });
+
     imgProcessBtn.addEventListener('click', async () => {
       if (!imgSelectedFiles.length) return;
       imgProcessBtn.disabled = true;
@@ -1528,8 +1554,11 @@
       $('imgResults').classList.add('active');
       $('imgErrorMsg').classList.remove('active');
 
+      const bgType = $('imgRemoveBg').checked ? document.querySelector('input[name="imgBgType"]:checked').value : 'transparent';
       const opts = {
         remove_bg: $('imgRemoveBg').checked,
+        bg_type: bgType,
+        bg_color: $('imgBgColor').value,
         auto_crop: $('imgAutoCrop').checked,
         padding: parseInt($('imgPadding').value) || 0,
         width: parseInt($('imgWidth').value) || 0,

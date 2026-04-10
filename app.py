@@ -843,6 +843,8 @@ def process_image():
 
     opts = json.loads(request.form.get("options", "{}"))
     remove_bg = opts.get("remove_bg", False)
+    bg_type = opts.get("bg_type", "transparent")  # transparent, white, black, custom
+    bg_color = opts.get("bg_color", "#00b894")
     resize_width = opts.get("width", 0)
     out_format = opts.get("format", "png")
     auto_crop = opts.get("auto_crop", False)
@@ -877,6 +879,21 @@ def process_image():
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if os.path.exists(temp_out):
                 img = Image.open(temp_out).convert("RGBA")
+
+        # Apply replacement background after BG removal
+        if remove_bg and bg_type != "transparent":
+            if bg_type == "white":
+                bg_rgba = (255, 255, 255, 255)
+            elif bg_type == "black":
+                bg_rgba = (0, 0, 0, 255)
+            elif bg_type == "custom" and bg_color:
+                hex_c = bg_color.lstrip("#")
+                bg_rgba = (int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16), 255)
+            else:
+                bg_rgba = (255, 255, 255, 255)
+            bg_img = Image.new("RGBA", img.size, bg_rgba)
+            bg_img.paste(img, mask=img.split()[3])
+            img = bg_img
 
         # Auto-crop transparent areas
         if auto_crop:

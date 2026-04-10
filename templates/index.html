@@ -206,6 +206,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" data-tab="convert">Video to GIF</button>
+      <button class="tab" data-tab="image">Image</button>
       <button class="tab" data-tab="prompt">Prompt Builder</button>
       <button class="tab" data-tab="settings">Settings</button>
     </div>
@@ -398,7 +399,82 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 2: PROMPT BUILDER ==================== -->
+    <!-- ==================== TAB 2: IMAGE ==================== -->
+    <div class="tab-content" id="tab-image">
+      <div class="drop-zone" id="imgDropZone">
+        <p id="imgDropText">Drop an image here or tap to select</p>
+      </div>
+      <input type="file" id="imgFileInput" accept="image/*" hidden>
+
+      <div class="settings">
+        <div class="settings-toggle" id="imgSettingsToggle">
+          <span class="arrow" id="imgSettingsArrow">&#9654;</span>
+          <span>Settings</span>
+        </div>
+        <div class="settings-body" id="imgSettingsBody">
+          <div class="section">
+            <div class="section-title">Background</div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="imgRemoveBg"><span class="sl"></span></label>
+              <span>Remove background (Apple Vision)</span>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Adjustments</div>
+            <div class="toggle-row">
+              <label class="sw"><input type="checkbox" id="imgAutoCrop"><span class="sl"></span></label>
+              <span>Auto-trim transparent areas</span>
+            </div>
+            <div class="row">
+              <label>Padding</label>
+              <input type="range" id="imgPadding" min="0" max="100" value="0">
+              <span class="range-val" id="imgPaddingVal">0</span>
+            </div>
+            <div class="row">
+              <label>Width</label>
+              <select id="imgWidth">
+                <option value="0">Original</option>
+                <option value="1024">1024px</option>
+                <option value="640">640px</option>
+                <option value="480">480px</option>
+                <option value="320">320px</option>
+                <option value="240">240px</option>
+              </select>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Output Format</div>
+            <div class="row">
+              <div class="radio-group">
+                <label><input type="radio" name="imgFormat" value="png" checked><span>PNG</span></label>
+                <label><input type="radio" name="imgFormat" value="webp"><span>WebP</span></label>
+                <label><input type="radio" name="imgFormat" value="jpg"><span>JPG</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" id="imgProcessBtn" disabled>Process Image</button>
+
+      <div class="progress-section" id="imgProgressSection">
+        <div style="text-align:center;padding:24px;">
+          <div style="display:inline-block;width:40px;height:40px;border:3px solid #333;border-top-color:#6c5ce7;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          <p style="margin-top:12px;font-size:0.85rem;color:#888;">Processing image...</p>
+        </div>
+      </div>
+      <div class="error-msg" id="imgErrorMsg"></div>
+      <div class="result-section" id="imgResultSection">
+        <img id="imgResultImg" src="" alt="Result">
+        <p id="imgResultInfo" style="font-size:0.8rem;color:#888;margin-top:8px;"></p>
+        <div class="result-actions">
+          <a class="btn-download" id="imgDownloadLink" href="#">Download</a>
+          <button class="btn-reset" id="imgResetBtn">New image</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: PROMPT BUILDER ==================== -->
     <div class="tab-content" id="tab-prompt">
       <div class="prompt-section">
 
@@ -1277,6 +1353,80 @@
       } catch (e) {
         alert('Failed to send video to converter: ' + e.message);
       }
+    });
+
+    // ===== IMAGE TAB =====
+    const imgDropZone = $('imgDropZone'), imgFileInput = $('imgFileInput'), imgDropText = $('imgDropText');
+    const imgProcessBtn = $('imgProcessBtn');
+    let imgSelectedFile = null;
+
+    imgDropZone.addEventListener('click', () => imgFileInput.click());
+    imgDropZone.addEventListener('dragover', e => { e.preventDefault(); imgDropZone.classList.add('dragover'); });
+    imgDropZone.addEventListener('dragleave', () => imgDropZone.classList.remove('dragover'));
+    imgDropZone.addEventListener('drop', e => {
+      e.preventDefault(); imgDropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) selectImageFile(e.dataTransfer.files[0]);
+    });
+    imgFileInput.addEventListener('change', () => { if (imgFileInput.files.length) selectImageFile(imgFileInput.files[0]); });
+
+    function selectImageFile(file) {
+      imgSelectedFile = file;
+      imgDropText.innerHTML = '<span class="filename">' + file.name + '</span>';
+      imgDropZone.classList.add('has-file');
+      imgProcessBtn.disabled = false;
+    }
+
+    $('imgSettingsToggle').addEventListener('click', () => {
+      $('imgSettingsBody').classList.toggle('open');
+      $('imgSettingsArrow').classList.toggle('open');
+    });
+    $('imgPadding').addEventListener('input', e => $('imgPaddingVal').textContent = e.target.value);
+
+    imgProcessBtn.addEventListener('click', async () => {
+      if (!imgSelectedFile) return;
+      imgProcessBtn.disabled = true;
+      $('imgProgressSection').classList.add('active');
+      $('imgResultSection').classList.remove('active');
+      $('imgErrorMsg').classList.remove('active');
+
+      const opts = {
+        remove_bg: $('imgRemoveBg').checked,
+        auto_crop: $('imgAutoCrop').checked,
+        padding: parseInt($('imgPadding').value) || 0,
+        width: parseInt($('imgWidth').value) || 0,
+        format: document.querySelector('input[name="imgFormat"]:checked').value,
+      };
+
+      const form = new FormData();
+      form.append('image', imgSelectedFile);
+      form.append('options', JSON.stringify(opts));
+
+      try {
+        const res = await fetch('/process-image', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        $('imgProgressSection').classList.remove('active');
+        $('imgResultImg').src = '/image-result/' + data.job_id + '?t=' + Date.now();
+        $('imgDownloadLink').href = '/image-download/' + data.job_id;
+        $('imgResultInfo').textContent = `${data.width} × ${data.height} — ${data.size}`;
+        $('imgResultSection').classList.add('active');
+        imgProcessBtn.disabled = false;
+      } catch (err) {
+        $('imgProgressSection').classList.remove('active');
+        $('imgErrorMsg').textContent = err.message;
+        $('imgErrorMsg').classList.add('active');
+        imgProcessBtn.disabled = false;
+      }
+    });
+
+    $('imgResetBtn').addEventListener('click', () => {
+      imgSelectedFile = null; imgFileInput.value = '';
+      imgDropText.textContent = 'Drop an image here or tap to select';
+      imgDropZone.classList.remove('has-file'); imgProcessBtn.disabled = true;
+      $('imgProgressSection').classList.remove('active');
+      $('imgResultSection').classList.remove('active');
+      $('imgErrorMsg').classList.remove('active');
     });
 
     loadSettings();

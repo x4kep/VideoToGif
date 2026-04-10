@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import requests as http_requests
 from flask import Flask, Response, jsonify, render_template, request, send_file
+from PIL import Image
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -826,6 +827,116 @@ def gemini_video_download(op_id):
         return jsonify({"error": "Video not ready"}), 404
     return send_file(op["video_path"], mimetype="video/mp4", as_attachment=True,
                      download_name="generated.mp4")
+
+
+# --- Image processing ---
+
+image_jobs: dict = {}
+
+
+@app.route("/process-image", methods=["POST"])
+def process_image():
+    """Process an uploaded image with background removal."""
+    image_file = request.files.get("image")
+    if not image_file or not image_file.filename:
+        return jsonify({"error": "No image file provided"}), 400
+
+    opts = json.loads(request.form.get("options", "{}"))
+    remove_bg = opts.get("remove_bg", False)
+    resize_width = opts.get("width", 0)
+    out_format = opts.get("format", "png")
+    auto_crop = opts.get("auto_crop", False)
+    pad = opts.get("padding", 0)
+
+    job_id = str(uuid4())
+    work_dir = tempfile.mkdtemp(prefix="img_")
+    filename = secure_filename(image_file.filename)
+    input_path = os.path.join(work_dir, filename)
+    image_file.save(input_path)
+
+    try:
+        img = Image.open(input_path).convert("RGBA")
+
+        # Resize
+        if resize_width and resize_width > 0 and img.width != resize_width:
+            ratio = resize_width / img.width
+            new_h = int(img.height * ratio)
+            img = img.resize((resize_width, new_h), Image.LANCZOS)
+
+        # Background removal using Apple Vision
+        if remove_bg:
+            if not os.path.isfile(REMOVE_BG_BIN):
+                subprocess.run([
+                    "swiftc", "-O", "-o", REMOVE_BG_BIN, REMOVE_BG_SRC,
+                    "-framework", "Vision", "-framework", "CoreImage", "-framework", "AppKit",
+                ], check=True)
+            temp_in = os.path.join(work_dir, "temp_in.png")
+            temp_out = os.path.join(work_dir, "temp_out.png")
+            img.save(temp_in)
+            subprocess.run([REMOVE_BG_BIN, temp_in, temp_out],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if os.path.exists(temp_out):
+                img = Image.open(temp_out).convert("RGBA")
+
+        # Auto-crop transparent areas
+        if auto_crop:
+            bbox = img.getbbox()
+            if bbox:
+                img = img.crop(bbox)
+
+        # Add padding
+        if pad and pad > 0:
+            new_w = img.width + pad * 2
+            new_h = img.height + pad * 2
+            padded = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))
+            padded.paste(img, (pad, pad))
+            img = padded
+
+        # Output
+        ext = {"png": ".png", "webp": ".webp", "jpg": ".jpg"}.get(out_format, ".png")
+        output_path = os.path.join(work_dir, f"output{ext}")
+
+        if out_format == "jpg":
+            rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+            rgb_img.paste(img, mask=img.split()[3] if img.mode == "RGBA" else None)
+            rgb_img.save(output_path, "JPEG", quality=95)
+        elif out_format == "webp":
+            img.save(output_path, "WEBP", quality=90)
+        else:
+            img.save(output_path, "PNG")
+
+        mime = {"png": "image/png", "webp": "image/webp", "jpg": "image/jpeg"}.get(out_format, "image/png")
+        # Build download name from original filename with new extension
+        orig_name = os.path.splitext(filename)[0]
+        dl_name = orig_name + ext
+        image_jobs[job_id] = {"output": output_path, "mime": mime, "work_dir": work_dir, "download_name": dl_name}
+
+        size_kb = os.path.getsize(output_path) / 1024
+        return jsonify({
+            "job_id": job_id,
+            "size": f"{size_kb:.1f} KB",
+            "width": img.width,
+            "height": img.height,
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/image-result/<job_id>")
+def image_result(job_id):
+    job = image_jobs.get(job_id)
+    if not job or not os.path.exists(job["output"]):
+        return jsonify({"error": "Not found"}), 404
+    return send_file(job["output"], mimetype=job["mime"], as_attachment=False)
+
+
+@app.route("/image-download/<job_id>")
+def image_download(job_id):
+    job = image_jobs.get(job_id)
+    if not job or not os.path.exists(job["output"]):
+        return jsonify({"error": "Not found"}), 404
+    return send_file(job["output"], mimetype=job["mime"], as_attachment=True, download_name=job["download_name"])
 
 
 if __name__ == "__main__":

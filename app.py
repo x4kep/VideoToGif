@@ -971,6 +971,7 @@ def download_all():
     zip_dir = tempfile.mkdtemp(prefix="zip_")
     zip_path = os.path.join(zip_dir, f"{folder_name}.zip")
 
+    files_added = 0
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for jid in job_ids:
             job = store.get(jid)
@@ -978,8 +979,9 @@ def download_all():
                 continue
             arcname = os.path.join(folder_name, job.get("download_name", os.path.basename(job["output"])))
             zf.write(job["output"], arcname)
+            files_added += 1
 
-    if not os.path.exists(zip_path):
+    if files_added == 0:
         return jsonify({"error": "No files to download"}), 400
 
     return send_file(zip_path, mimetype="application/zip", as_attachment=True,
@@ -987,4 +989,5 @@ def download_all():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(debug=True, port=port)

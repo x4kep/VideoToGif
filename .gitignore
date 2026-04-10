@@ -5,3 +5,8 @@ __pycache__/
 scripts/remove_bg
 scripts/remove_background
 .DS_Store
+.pytest_cache/
+htmlcov/
+node_modules/
+test-results/
+package-lock.json

@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "devDependencies": {
+    "pa11y": "^8.0.0"
+  }
+}

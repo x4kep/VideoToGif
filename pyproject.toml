@@ -1,0 +1,13 @@
+[project]
+name = "gif-studio"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that take >2s (e.g. real bg removal)",
+    "macos_only: requires macOS with Vision framework",
+    "e2e: end-to-end browser tests",
+    "a11y: accessibility audit tests",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
